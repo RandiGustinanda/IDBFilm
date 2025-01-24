@@ -1,22 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Image, 
-  FlatList, 
-  StyleSheet, 
-  Text, 
-  View, 
-  Animated, 
-  TouchableOpacity, 
-  Modal, 
-  TouchableWithoutFeedback, 
-  Keyboard, 
-  TextInput, 
+import {
+  Image,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+  Animated,
+  TouchableOpacity,
+  Modal,
+  TouchableWithoutFeedback,
+  TextInput,
   StatusBar,
-  Dimensions 
+  Dimensions
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import tmdbAPI, { Movie } from './tmdbAPI';
-
+import YoutubePlayer from 'react-native-youtube-iframe';
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 export default function HomeScreen() {
@@ -27,12 +26,12 @@ export default function HomeScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-
+  const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
   const modalOpacityAnim = React.useRef(new Animated.Value(0)).current;
   const modalScaleAnim = React.useRef(new Animated.Value(0.7)).current;
-  
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -61,10 +60,11 @@ export default function HomeScreen() {
     fetchData();
   }, []);
 
-  const handleMoviePress = (movie: Movie) => {
+  const handleMoviePress = async (movie: Movie) => {
     setSelectedMovie(movie);
+    const trailer = await tmdbAPI.fetchMovieTrailer(movie.id);
+    setTrailerKey(trailer);
     setIsModalVisible(true);
-    
     Animated.parallel([
       Animated.timing(modalOpacityAnim, {
         toValue: 1,
@@ -98,13 +98,13 @@ export default function HomeScreen() {
     });
   };
 
-  const filteredMovies = movies.filter((movie) => 
+  const filteredMovies = movies.filter((movie) =>
     movie.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-  
+
     if (query.trim().length > 0) {
       setIsSearching(true);
       try {
@@ -120,30 +120,30 @@ export default function HomeScreen() {
       setMovies(moviesData);
     }
   };
-  
+
   const renderMovieItem = ({ item, index }: { item: Movie, index: number }) => {
     const animatedStyle = {
       opacity: fadeAnim,
       transform: [
-        { 
+        {
           scale: scaleAnim.interpolate({
             inputRange: [0, 1],
             outputRange: [0.8, 1]
-          }) 
+          })
         },
-        { 
+        {
           translateY: fadeAnim.interpolate({
             inputRange: [0, 1],
             outputRange: [50, 0]
-          }) 
+          })
         }
       ]
     };
 
     return (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.movieItem, 
+          styles.movieItem,
           animatedStyle,
           { animationDelay: `${index * 100}ms` }
         ]}
@@ -156,7 +156,7 @@ export default function HomeScreen() {
           />
           <BlurView
             style={styles.movieInfoOverlay}
-            intensity={50} 
+            intensity={50}
             tint="dark"
           >
             <Text style={styles.movieTitle} numberOfLines={1}>
@@ -173,18 +173,18 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#121212" 
-        translucent={false} 
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#121212"
+        translucent={false}
       />
-      
+
       <TextInput
-         style={styles.searchBar}
-         placeholder="Search for movies..."
-         placeholderTextColor="#888"
-         value={searchQuery}
-         onChangeText={handleSearch}
+        style={styles.searchBar}
+        placeholder="Search for movies..."
+        placeholderTextColor="#888"
+        value={searchQuery}
+        onChangeText={handleSearch}
       />
       <Text style={styles.headerTitle}>Popular</Text>
       <AnimatedFlatList
@@ -195,15 +195,15 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.gridContainer}
       />
-   <Modal
+      <Modal
         visible={isModalVisible}
         animationType="fade"
         transparent={true}
         onRequestClose={closeModal}
       >
-        <BlurView 
-          style={styles.modalBlurBackground} 
-          intensity={80} 
+        <BlurView
+          style={styles.modalBlurBackground}
+          intensity={80}
           tint="dark"
         />
 
@@ -211,14 +211,14 @@ export default function HomeScreen() {
           <View style={styles.modalTouchableOverlay} />
         </TouchableWithoutFeedback>
 
-        <Animated.View 
+        <Animated.View
           style={[
             styles.modalContainer,
             {
               opacity: modalOpacityAnim,
               transform: [
-                { 
-                  scale: modalScaleAnim 
+                {
+                  scale: modalScaleAnim
                 }
               ]
             }
@@ -226,25 +226,36 @@ export default function HomeScreen() {
         >
           {selectedMovie && (
             <View style={styles.modalContent}>
-              <View style={styles.modalImageContainer}>
-                <Image
-                  source={{ uri: `https://image.tmdb.org/t/p/w500${selectedMovie.poster_path}` }}
-                  style={styles.modalPoster}
-                />
-                <View style={styles.modalGradientOverlay} />
+              <View style={styles.trailerContainer}>
+                {trailerKey ? (
+                  <YoutubePlayer
+                    height={250}
+                    play={true}
+                    videoId={trailerKey}
+                    webViewStyle={styles.youtubePlayer}
+                  />
+                ) : (
+                  <View style={styles.noTrailerContainer}>
+                    <Text style={styles.noTrailerText}>
+                      No trailer available
+                    </Text>
+                  </View>
+                )}
               </View>
-              
+
               <View style={styles.modalDetailsContainer}>
                 <Text style={styles.modalTitle}>{selectedMovie.title}</Text>
                 <View style={styles.modalMetaContainer}>
-                  <Text style={styles.modalRating}>★ {selectedMovie.vote_average.toFixed(1)}</Text>
+                  <Text style={styles.modalRating}>
+                    ★ {selectedMovie.vote_average.toFixed(1)}
+                  </Text>
                   <Text style={styles.modalYear}>
                     {new Date(selectedMovie.release_date).getFullYear()}
                   </Text>
                 </View>
-                
-                <Text 
-                  style={styles.modalOverview} 
+
+                <Text
+                  style={styles.modalOverview}
                   numberOfLines={6}
                 >
                   {selectedMovie.overview}
@@ -329,7 +340,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-
+  trailerContainer: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#000',
+  },
+  youtubePlayer: {
+    width: '100%',
+    height: 250,
+  },
+  noTrailerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#333',
+  },
+  noTrailerText: {
+    color: 'white',
+    fontSize: 18,
+  },
   modalBlurBackground: {
     position: 'absolute',
     top: 0,
@@ -425,6 +454,6 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: 'white',
     fontSize: 17,
-    fontWeight:'bold',
+    fontWeight: 'bold',
   },
 });
