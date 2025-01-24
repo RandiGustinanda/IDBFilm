@@ -178,15 +178,24 @@ export default function HomeScreen() {
         backgroundColor="#121212"
         translucent={false}
       />
+       <View style={styles.logoSearchContainer}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../assets/images/logo.png")}
+            style={styles.logo}
+          />
+          <Text style={styles.title}>IDBFilm</Text>
+        </View>
 
-      <TextInput
-        style={styles.searchBar}
-        placeholder="Search for movies..."
-        placeholderTextColor="#888"
-        value={searchQuery}
-        onChangeText={handleSearch}
-      />
-      <Text style={styles.headerTitle}>Popular</Text>
+        <TextInput
+          style={styles.searchBar}
+          placeholder="Search for movies..."
+          placeholderTextColor="#888"
+          value={searchQuery}
+          onChangeText={handleSearch}
+        />
+      </View>
+      {/* <Text style={styles.headerTitle}>Popular</Text> */}
       <AnimatedFlatList
         data={filteredMovies}
         renderItem={renderMovieItem}
@@ -281,6 +290,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#121212',
     paddingTop: 50,
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    marginHorizontal: 16,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    marginRight: 8,
+    borderRadius: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
   },
   headerTitle: {
     fontSize: 24,
