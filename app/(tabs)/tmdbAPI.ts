@@ -104,6 +104,23 @@ const tmdbAPI = {
     }
   },
   
+  fetchMovieCast: async (movieId: number): Promise<Movie> => {
+    try {
+      const response = await axios.get(`${BASE_URL}/movie/${movieId}/credits`, {
+        params: {
+          api_key: API_KEY,
+          language: 'en-US',
+        },
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+        },
+      });
+      return response.data.cast;
+    } catch (error) {
+      console.error('Error fetching movie details:', error);
+      throw error;
+    }
+  },
 };
 
 export default tmdbAPI;
