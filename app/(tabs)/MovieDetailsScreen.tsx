@@ -9,11 +9,12 @@ import {
   TouchableOpacity,
   ImageBackground,
   Modal,
-  Linking
+  Image,
+  Animated,  // Import Animated
 } from 'react-native';
 import WebView from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
-import tmdbAPI, { Movie } from './tmdbAPI';
+import tmdbAPI, { Movie, Cast } from './tmdbAPI';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
@@ -36,6 +37,9 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { movie } = route.params;
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [cast, setCast] = useState<Cast[]>([]);
+  const [fadeAnim] = useState(new Animated.Value(0));  // Animated value for fade-in
+  const [translateYAnim] = useState(new Animated.Value(30));  // Animated value for translateY
 
   useEffect(() => {
     const fetchTrailer = async () => {
@@ -47,7 +51,17 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     };
 
+    const fetchCast = async () => {
+      try {
+        const castList = await tmdbAPI.fetchMovieCast(movie.id);
+        setCast(castList);
+      } catch (error) {
+        console.error('Failed to fetch cast', error);
+      }
+    };
+
     fetchTrailer();
+    fetchCast();
 
     // Set header title and trigger animations
     navigation.setOptions({
@@ -60,9 +74,22 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         >
           <Icon name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-      )
+      ),
     });
-  }, [movie, navigation]);
+
+    // Trigger fade-in and translate animation when the component mounts
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(translateYAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, [movie, navigation, fadeAnim, translateYAnim]);
 
   const handleWatchTrailer = () => {
     if (trailerKey) {
@@ -119,6 +146,32 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
                     Watch Trailer
                   </Text>
                 </TouchableOpacity>
+
+                {/* Menampilkan Caster dengan animasi */}
+                <Text style={styles.casterTitle}>Cast</Text>
+                <Animated.View
+                  style={[
+                    styles.castContainer,
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY: translateYAnim }],
+                    },
+                  ]}
+                >
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {cast.map((actor) => (
+                      <View key={actor.id} style={styles.actorContainer}>
+                        <Image
+                          source={{
+                            uri: `https://image.tmdb.org/t/p/w500${actor.profile_path}`,
+                          }}
+                          style={styles.actorImage}
+                        />
+                        <Text style={styles.actorName}>{actor.name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </Animated.View>
               </View>
             </View>
           </View>
@@ -243,6 +296,32 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  casterTitle: {
+    fontSize: 22,
+    color: 'white',
+    marginVertical: 15,
+    fontWeight: 'bold',
+  },
+  castContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actorContainer: {
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  actorImage: {
+    width: 100,
+    height: 100,  // Buat gambar menjadi bulat
+    borderRadius: 50,  // Bulatkan gambar
+    marginBottom: 5,
+  },
+  actorName: {
+    color: 'white',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 5,
   },
   modalContainer: {
     flex: 1,
