@@ -7,15 +7,11 @@ import {
   StatusBar,
   ScrollView,
   TouchableOpacity,
-  Platform
+  ImageBackground,
+  Modal,
+  Linking
 } from 'react-native';
-import YoutubePlayer from 'react-native-youtube-iframe';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming
-} from 'react-native-reanimated';
+import WebView from 'react-native-webview';
 import Icon from 'react-native-vector-icons/Ionicons';
 import tmdbAPI, { Movie } from './tmdbAPI';
 import { RouteProp } from '@react-navigation/native';
@@ -39,18 +35,7 @@ const { width, height } = Dimensions.get('window');
 const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { movie } = route.params;
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
-
-  // Animation values
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(50);
-
-  // Animated styles
-  const animatedContentStyle = useAnimatedStyle(() => {
-    return {
-      opacity: withTiming(opacity.value, { duration: 500 }),
-      transform: [{ translateY: withSpring(translateY.value) }]
-    };
-  });
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchTrailer = async () => {
@@ -61,15 +46,15 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         console.error('Failed to fetch trailer', error);
       }
     };
-   
+
     fetchTrailer();
-   
+
     // Set header title and trigger animations
-    navigation.setOptions({ 
+    navigation.setOptions({
       headerTransparent: true,
       headerStyle: { backgroundColor: 'transparent' },
       headerLeft: () => (
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
@@ -77,73 +62,100 @@ const MovieDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         </TouchableOpacity>
       )
     });
-
-    // Trigger entrance animations
-    opacity.value = 1;
-    translateY.value = 0;
   }, [movie, navigation]);
+
+  const handleWatchTrailer = () => {
+    if (trailerKey) {
+      setModalVisible(true);
+    } else {
+      alert('No trailer available');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+      <ImageBackground
+        source={{ uri: `https://image.tmdb.org/t/p/w500${movie.poster_path}` }}
+        style={styles.backgroundImage}
+        imageStyle={styles.imageStyle}
+        blurRadius={10}
       >
-        <View style={styles.trailerContainer}>
-          {trailerKey ? (
-            <YoutubePlayer
-              height={250}
-              play={false}
-              videoId={trailerKey}
-              webViewStyle={styles.youtubePlayer}
-            />
-          ) : (
-            <View style={styles.noTrailerContainer}>
-              <Text style={styles.noTrailerText}>
-                No trailer available
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Animated.View 
-          style={[styles.detailsContainer, animatedContentStyle]}
+        <ScrollView
+          style={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.glassContainer}>
-            <View style={styles.contentWrapper}>
-              <Text style={styles.title}>{movie.title}</Text>
-              
-              <View style={styles.metaContainer}>
-                <View style={styles.ratingBadge}>
-                  <Icon name="star" size={16} color="gold" />
-                  <Text style={styles.rating}>
-                    {movie.vote_average.toFixed(1)}
+          <View style={styles.detailsContainer}>
+            <View style={styles.glassContainer}>
+              <View style={styles.contentWrapper}>
+                <Text style={styles.title}>{movie.title}</Text>
+
+                <View style={styles.metaContainer}>
+                  <View style={styles.ratingBadge}>
+                    <Icon name="star" size={16} color="gold" />
+                    <Text style={styles.rating}>
+                      {movie.vote_average.toFixed(1)}
+                    </Text>
+                  </View>
+                  <Text style={styles.year}>
+                    {new Date(movie.release_date).getFullYear()}
                   </Text>
                 </View>
-                <Text style={styles.year}>
-                  {new Date(movie.release_date).getFullYear()}
+
+                <Text style={styles.overview}>
+                  {movie.overview}
                 </Text>
-              </View>
 
-              <Text style={styles.overview}>
-                {movie.overview}
-              </Text>
-
-              <View style={styles.actionContainer}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="play" size={20} color="white" />
-                  <Text style={styles.actionButtonText}>Watch Now</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="bookmark" size={20} color="white" />
-                  <Text style={styles.actionButtonText}>Bookmark</Text>
+                {/* Tombol untuk menonton trailer */}
+                <TouchableOpacity 
+                  style={styles.watchTrailerButton} 
+                  onPress={handleWatchTrailer}
+                >
+                  <Text style={styles.watchTrailerText}>
+                    Watch Trailer
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
-        </Animated.View>
-      </ScrollView>
+        </ScrollView>
+      </ImageBackground>
+
+      {/* Modal untuk memutar trailer */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {trailerKey ? (
+              <View style={styles.modalVideoContainer}>
+                <TouchableOpacity 
+                  style={styles.closeModalButton} 
+                  onPress={handleCloseModal}
+                >
+                  <Icon name="close" size={30} color="white" />
+                </TouchableOpacity>
+                <WebView
+                  source={{ uri: `https://www.youtube.com/embed/${trailerKey}?autoplay=1` }}
+                  style={styles.webView}
+                  allowsFullscreenVideo={true}
+                />
+              </View>
+            ) : (
+              <Text style={styles.noTrailerText}>
+                No trailer available
+              </Text>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -153,33 +165,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#121212',
   },
-  scrollContainer: {
-    flex: 1,
-  },
-  trailerContainer: {
-    width: '100%',
-    height: 250,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    overflow: 'hidden',
-  },
-  youtubePlayer: {
-    width: '100%',
-    height: 250,
-  },
-  noTrailerContainer: {
+  backgroundImage: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    width: '100%',
+    height: '100%',
   },
-  noTrailerText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '300',
+  imageStyle: {
+    opacity: 0.6,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   detailsContainer: {
     padding: 20,
-    marginTop: -30,
+    marginTop: 0,
   },
   glassContainer: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -230,22 +231,51 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
     marginBottom: 20,
   },
-  actionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 15,
+  watchTrailerButton: {
+    backgroundColor: 'rgba(255,215,0,0.8)',
     paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  watchTrailerText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#121212',
+    borderRadius: 10,
+    padding: 15,
+  },
+  modalVideoContainer: {
+    height: 250,
+    width: '100%',
+  },
+  webView: {
+    width: '100%',
+    height: '100%',
     borderRadius: 10,
   },
-  actionButtonText: {
+  closeModalButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
+  },
+  noTrailerText: {
     color: 'white',
-    marginLeft: 10,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '300',
+    textAlign: 'center',
   },
   backButton: {
     marginLeft: 10,
